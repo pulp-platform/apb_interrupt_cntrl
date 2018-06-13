@@ -9,11 +9,11 @@
 // specific language governing permissions and limitations under the License.
 
 `define REG_MASK        4'b0000 //BASEADDR+0x00
-`define REG_MASK_SET    4'b0001 //BASEADDR+0x04 
-`define REG_MASK_CLEAR  4'b0010 //BASEADDR+0x08 
+`define REG_MASK_SET    4'b0001 //BASEADDR+0x04
+`define REG_MASK_CLEAR  4'b0010 //BASEADDR+0x08
 `define REG_INT         4'b0011 //BASEADDR+0x0C
-`define REG_INT_SET     4'b0100 //BASEADDR+0x10 
-`define REG_INT_CLEAR   4'b0101 //BASEADDR+0x14 
+`define REG_INT_SET     4'b0100 //BASEADDR+0x10
+`define REG_INT_CLEAR   4'b0101 //BASEADDR+0x14
 `define REG_ACK         4'b0110 //BASEADDR+0x18
 `define REG_ACK_SET     4'b0111 //BASEADDR+0x1C
 `define REG_ACK_CLEAR   4'b1000 //BASEADDR+0x20
@@ -53,7 +53,7 @@ module apb_interrupt_cntrl
  );
 
   logic             [31:0] s_events;
-            
+
   logic             [31:0] s_ack_next;
   logic             [31:0] r_ack;
   logic             [31:0] s_int_next;
@@ -65,6 +65,8 @@ module apb_interrupt_cntrl
   logic [EVT_ID_WIDTH-1:0] s_event_fifo_data;
   logic                    s_event_fifo_valid;
   logic                    s_event_fifo_ready;
+  logic                    s_is_int_clr_fifo;
+  logic                    s_is_int_fifo;
 
   logic              [3:0] s_apb_addr;
 
@@ -90,35 +92,38 @@ module apb_interrupt_cntrl
   assign s_is_apb_write = apb_slave.psel & apb_slave.penable & apb_slave.pwrite;
   assign s_is_apb_read  = apb_slave.psel & apb_slave.penable & ~apb_slave.pwrite;
 
-  assign s_event_fifo_ready = (core_irq_ack_i & (core_irq_id_i == 5'd26)) | (s_is_int_clr & (apb_slave.pwdata[26] == 1'b1)) | (s_is_int & (apb_slave.pwdata[26] == 1'b0));
-  
+  assign s_is_int_clr_fifo  = s_is_int_clr & apb_slave.psel & apb_slave.penable & (apb_slave.pwdata[26] == 1'b1);
+  assign s_is_int_fifo      = s_is_int     & apb_slave.psel & apb_slave.penable & (apb_slave.pwdata[26] == 1'b0);
+
+  assign s_event_fifo_ready = (core_irq_ack_i & (core_irq_id_i == 5'd26)) | (s_is_apb_write & (s_is_int_clr_fifo | s_is_int_fifo));
+
   assign s_apb_addr     = apb_slave.paddr[5:2];
-  assign s_is_mask      = s_apb_addr == `REG_MASK;  
-  assign s_is_mask_set  = s_apb_addr == `REG_MASK_SET;  
-  assign s_is_mask_clr  = s_apb_addr == `REG_MASK_CLEAR;  
-  assign s_is_int       = s_apb_addr == `REG_INT;  
-  assign s_is_int_set   = s_apb_addr == `REG_INT_SET;  
-  assign s_is_int_clr   = s_apb_addr == `REG_INT_CLEAR;  
-  assign s_is_ack       = s_apb_addr == `REG_ACK;  
-  assign s_is_ack_set   = s_apb_addr == `REG_ACK_SET;  
-  assign s_is_ack_clr   = s_apb_addr == `REG_ACK_CLEAR;  
+  assign s_is_mask      = s_apb_addr == `REG_MASK;
+  assign s_is_mask_set  = s_apb_addr == `REG_MASK_SET;
+  assign s_is_mask_clr  = s_apb_addr == `REG_MASK_CLEAR;
+  assign s_is_int       = s_apb_addr == `REG_INT;
+  assign s_is_int_set   = s_apb_addr == `REG_INT_SET;
+  assign s_is_int_clr   = s_apb_addr == `REG_INT_CLEAR;
+  assign s_is_ack       = s_apb_addr == `REG_ACK;
+  assign s_is_ack_set   = s_apb_addr == `REG_ACK_SET;
+  assign s_is_ack_clr   = s_apb_addr == `REG_ACK_CLEAR;
   assign s_is_fifo      = s_apb_addr == `REG_FIFO;
   assign s_is_event     = |s_events;
 
   assign core_irq_req_o = |(r_int & r_mask);
 
-  generic_fifo 
-  #( 
+  generic_fifo
+  #(
     .DATA_WIDTH(8),
     .DATA_DEPTH(4)
   ) i_event_fifo (
     .clk     ( clk_i ),
     .rst_n   ( rst_ni ),
-    
+
     .data_i  ( event_fifo_data_i  ),
     .valid_i ( event_fifo_valid_i ),
     .grant_o ( event_fifo_fulln_o ),
-    
+
     .data_o  ( s_event_fifo_data  ),
     .valid_o ( s_event_fifo_valid ),
     .grant_i ( s_event_fifo_ready ),
@@ -133,10 +138,10 @@ module apb_interrupt_cntrl
       if (s_is_mask)
         s_mask_next = apb_slave.pwdata;
       else if (s_is_mask_set)
-        s_mask_next = r_mask | apb_slave.pwdata; 
+        s_mask_next = r_mask | apb_slave.pwdata;
       else if (s_is_mask_clr)
-        s_mask_next = r_mask & ~apb_slave.pwdata; 
-    end  
+        s_mask_next = r_mask & ~apb_slave.pwdata;
+    end
   end
 
   always_comb begin : proc_id
@@ -154,17 +159,19 @@ module apb_interrupt_cntrl
     begin
       if (core_irq_ack_i && (core_irq_id_i == i))
         s_int_next[i] = 1'b0;
-      else if(s_events[i])
-        s_int_next[i] = 1'b1;
       else if(s_is_apb_write)
       begin
         if (s_is_int)
           s_int_next[i] = apb_slave.pwdata[i];
         else if (s_is_int_set)
-          s_int_next[i] = r_int[i] | apb_slave.pwdata[i]; 
+          s_int_next[i] = (r_int[i] | s_events[i]) | apb_slave.pwdata[i];
         else if (s_is_int_clr)
-          s_int_next[i] = r_int[i] & ~apb_slave.pwdata[i]; 
+          s_int_next[i] = (r_int[i] | s_events[i]) & ~apb_slave.pwdata[i];
+        else if(s_events[i])
+          s_int_next[i] = 1'b1;
       end
+      else if(s_events[i])
+        s_int_next[i] = 1'b1;
     end
   end
 
@@ -179,9 +186,9 @@ module apb_interrupt_cntrl
         if (s_is_ack)
           s_ack_next[i] = apb_slave.pwdata[i];
         else if (s_is_ack_set)
-          s_ack_next[i] = r_ack[i] | apb_slave.pwdata[i]; 
+          s_ack_next[i] = r_ack[i] | apb_slave.pwdata[i];
         else if (s_is_ack_clr)
-          s_ack_next[i] = r_ack[i] & ~apb_slave.pwdata[i]; 
+          s_ack_next[i] = r_ack[i] & ~apb_slave.pwdata[i];
       end
     end
   end
@@ -206,7 +213,7 @@ module apb_interrupt_cntrl
         r_fifo_event <= s_event_fifo_data;
     end
   end
-        
+
     // read data
     always_comb
     begin
@@ -224,9 +231,9 @@ module apb_interrupt_cntrl
           apb_slave.prdata[EVT_ID_WIDTH-1:0] = r_fifo_event;
       end
     end
-      
+
    assign apb_slave.pready  = 1'b1;
    assign apb_slave.pslverr = 1'b0;
-   
+
 endmodule
 
