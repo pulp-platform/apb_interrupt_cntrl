@@ -5,5 +5,8 @@ package:
     - "Jie Chen <jie.chen@greenwaves-technologies.com>"
     - "Florent Rotenberg <florent.rotenberg@greenwaves-technologies.com>"
 
+dependencies:
+  common_cells: { git: "git@github.com:pulp-platform/common_cells.git", version: 1.13.1 }
+
 sources:
   - apb_interrupt_cntrl.sv
