@@ -112,8 +112,7 @@ module apb_interrupt_cntrl
 
   assign core_irq_req_o = |(r_int & r_mask);
 
-  generic_fifo
-  #(
+  generic_fifo #(
     .DATA_WIDTH(8),
     .DATA_DEPTH(4)
   ) i_event_fifo (
