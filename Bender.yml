@@ -1,6 +1,6 @@
 package:
   name: apb_interrupt_cntrl
-  authors: 
+  authors:
     - "Pasquale Davide Schiavone <pschiavo@iis.ee.ethz.ch>"
     - "Jie Chen <jie.chen@greenwaves-technologies.com>"
     - "Florent Rotenberg <florent.rotenberg@greenwaves-technologies.com>"
