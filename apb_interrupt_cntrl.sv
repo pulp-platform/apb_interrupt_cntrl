@@ -49,7 +49,7 @@ module apb_interrupt_cntrl
   output logic           fetch_en_o,
 
   // bus slave connections - periph bus and eu_direct_link
-  APB_BUS.Slave          apb_slave
+  APB.Slave              apb_slave
  );
 
   logic             [31:0] s_events;
