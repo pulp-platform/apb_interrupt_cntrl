@@ -127,7 +127,7 @@ module apb_interrupt_cntrl
     .valid_o ( s_event_fifo_valid ),
     .grant_i ( s_event_fifo_ready ),
 
-    .test_mode_i()
+    .test_mode_i
   );
 
   always_comb begin : proc_mask
