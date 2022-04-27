@@ -117,7 +117,7 @@ module apb_interrupt_cntrl
     .DATA_WIDTH(8),
     .DATA_DEPTH(4)
   ) i_event_fifo (
-    .clk     ( clk_i ),
+    .clk     ( clk_i  ),
     .rst_n   ( rst_ni ),
 
     .data_i  ( event_fifo_data_i  ),
@@ -128,7 +128,7 @@ module apb_interrupt_cntrl
     .valid_o ( s_event_fifo_valid ),
     .grant_i ( s_event_fifo_ready ),
 
-    .test_mode_i()
+    .test_mode_i ( test_mode_i )
   );
 
   always_comb begin : proc_mask
